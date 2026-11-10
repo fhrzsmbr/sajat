@@ -1,0 +1,206 @@
+
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Top Down Racing</title>
+<style>
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    background: #18251c;
+    color: white;
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+h2 { margin: 12px; }
+canvas {
+    background: #444;
+    border: 4px solid #222;
+    max-width: 100%;
+}
+.info {
+    display: flex;
+    gap: 35px;
+    margin: 12px;
+    font-size: 18px;
+}
+button {
+    padding: 10px 25px;
+    margin: 10px;
+    cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<h2>🏎️ TOP DOWN RACING</h2>
+
+<div class="info">
+    <span>Pont: <b id="score">0</b></span>
+    <span>Sebesség: <b id="speed">1</b></span>
+</div>
+
+<canvas id="game" width="500" height="700"></canvas>
+<button onclick="restart()">Új játék</button>
+<p>Vezérlés: ← → vagy A / D | W: gyorsítás | S: lassítás</p>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let player, enemies, lines, score, speed, gameOver;
+let keys = {};
+
+function restart() {
+    player = { x: 250, y: 570, w: 42, h: 75 };
+    enemies = [];
+    lines = [];
+    score = 0;
+    speed = 5;
+    gameOver = false;
+
+    for (let i = 0; i < 10; i++)
+        lines.push(i * 90);
+
+    requestAnimationFrame(loop);
+}
+
+document.addEventListener("keydown", e => {
+    keys[e.key.toLowerCase()] = true;
+    if (["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"," "].includes(e.key))
+        e.preventDefault();
+});
+
+document.addEventListener("keyup", e => {
+    keys[e.key.toLowerCase()] = false;
+});
+
+function drawCar(x, y, color) {
+    ctx.fillStyle = "#111";
+    ctx.fillRect(x - 23, y + 12, 8, 19);
+    ctx.fillRect(x + 15, y + 12, 8, 19);
+    ctx.fillRect(x - 23, y + 50, 8, 19);
+    ctx.fillRect(x + 15, y + 50, 8, 19);
+
+    ctx.fillStyle = color;
+    ctx.fillRect(x - 18, y, 36, 75);
+
+    ctx.fillStyle = "#a9d9e8";
+    ctx.fillRect(x - 14, y + 13, 28, 17);
+    ctx.fillRect(x - 14, y + 44, 28, 12);
+
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(x - 14, y + 3, 8, 5);
+    ctx.fillRect(x + 6, y + 3, 8, 5);
+}
+
+function drawRoad() {
+    ctx.fillStyle = "#28753a";
+    ctx.fillRect(0, 0, 500, 700);
+
+    ctx.fillStyle = "#444";
+    ctx.fillRect(65, 0, 370, 700);
+
+    ctx.fillStyle = "#eee";
+    ctx.fillRect(65, 0, 5, 700);
+    ctx.fillRect(430, 0, 5, 700);
+
+    ctx.fillStyle = "#fff";
+
+    lines.forEach(y => {
+        ctx.fillRect(188, y, 6, 42);
+        ctx.fillRect(306, y, 6, 42);
+    });
+
+    lines = lines.map(y => y + speed);
+    lines = lines.map(y => y > 700 ? y - 900 : y);
+}
+
+function spawnEnemy() {
+    if (Math.random() < 0.025) {
+        let lanes = [130, 250, 370];
+        let x = lanes[Math.floor(Math.random() * lanes.length)];
+
+        enemies.push({
+            x: x,
+            y: -90,
+            color: ["#e33", "#36c", "#f5c542", "#ddd"][
+                Math.floor(Math.random() * 4)
+            ]
+        });
+    }
+}
+
+function update() {
+    if (keys["arrowleft"] || keys["a"]) player.x -= 6;
+    if (keys["arrowright"] || keys["d"]) player.x += 6;
+
+    if (keys["w"] || keys["arrowup"])
+        speed = Math.min(speed + 0.05, 12);
+    else if (keys["s"] || keys["arrowdown"])
+        speed = Math.max(speed - 0.1, 2);
+    else
+        speed = Math.min(speed + 0.01, 8);
+
+    player.x = Math.max(90, Math.min(410, player.x));
+
+    spawnEnemy();
+
+    enemies.forEach(e => e.y += speed);
+
+    enemies = enemies.filter(e => e.y < 800);
+
+    enemies.forEach(e => {
+        if (
+            Math.abs(player.x - e.x) < 34 &&
+            Math.abs(player.y - e.y) < 65
+        ) {
+            gameOver = true;
+        }
+    });
+
+    score += Math.round(speed / 5);
+    document.getElementById("score").textContent = score;
+    document.getElementById("speed").textContent =
+        (speed / 5).toFixed(1);
+}
+
+function draw() {
+    drawRoad();
+
+    enemies.forEach(e => drawCar(e.x, e.y, e.color));
+
+    drawCar(player.x, player.y, "#00aaff");
+
+    if (gameOver) {
+        ctx.fillStyle = "rgba(0,0,0,0.75)";
+        ctx.fillRect(0, 0, 500, 700);
+
+        ctx.fillStyle = "white";
+        ctx.textAlign = "center";
+        ctx.font = "bold 38px Arial";
+        ctx.fillText("JÁTÉK VÉGE!", 250, 320);
+
+        ctx.font = "22px Arial";
+        ctx.fillText("Pontszám: " + score, 250, 365);
+        ctx.fillText("Kattints az Új játék gombra!", 250, 410);
+    }
+}
+
+function loop() {
+    if (!gameOver) update();
+    draw();
+
+    if (!gameOver)
+        requestAnimationFrame(loop);
+}
+
+restart();
+</script>
+</body>
+</html>
+
